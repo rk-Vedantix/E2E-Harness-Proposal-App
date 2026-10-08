@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>E2E Harness — Proposal Drafting Prototype</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>E2E Harness — AI-Assisted Proposal Drafting (prototype)</h1>
+  <span class="tag">Scripted rule-based demo — not a live LLM</span>
+</header>
+<div class="layout">
+  <div class="sidebar">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <strong style="font-size:13px;">Projects</strong>
+    </div>
+    <div id="project-list"></div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">
+    <h3 style="font-size:13px;">New project</h3>
+    <label>Project name</label>
+    <input id="new-project-name" placeholder="e.g. Northfield LV Chassis Harness">
+    <label>Customer</label>
+    <input id="new-project-customer" placeholder="e.g. Northfield Commercial Vehicles">
+    <button onclick="createProject()">Create project</button>
+  </div>
+  <div class="main" id="main">
+    <div class="empty">Select or create a project to begin.</div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
