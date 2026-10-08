@@ -98,10 +98,10 @@ function renderMain() {
       </div>
 
       <div class="tabs">
-        <button class="tab-btn ${ACTIVE_TAB === "form" ? "active" : ""}" onclick="setTab('form')">Structured form</button>
-        <button class="tab-btn ${ACTIVE_TAB === "upload" ? "active" : ""}" onclick="setTab('upload')">Document upload</button>
-        <button class="tab-btn ${ACTIVE_TAB === "paste" ? "active" : ""}" onclick="setTab('paste')">Paste email / text</button>
-        <button class="tab-btn ${ACTIVE_TAB === "notes" ? "active" : ""}" onclick="setTab('notes')">Meeting / verbal notes</button>
+        <button id="tabbtn-form" class="tab-btn ${ACTIVE_TAB === "form" ? "active" : ""}" onclick="setTab('form')">Structured form</button>
+        <button id="tabbtn-upload" class="tab-btn ${ACTIVE_TAB === "upload" ? "active" : ""}" onclick="setTab('upload')">Document upload</button>
+        <button id="tabbtn-paste" class="tab-btn ${ACTIVE_TAB === "paste" ? "active" : ""}" onclick="setTab('paste')">Paste email / text</button>
+        <button id="tabbtn-notes" class="tab-btn ${ACTIVE_TAB === "notes" ? "active" : ""}" onclick="setTab('notes')">Meeting / verbal notes</button>
       </div>
 
       <div class="tab-content ${ACTIVE_TAB === "form" ? "active" : ""}" id="tab-form">
@@ -277,7 +277,20 @@ function renderProposal() {
   `;
 }
 
-function setTab(t) { ACTIVE_TAB = t; renderMain(); }
+function setTab(t) {
+  // Switch tabs by toggling CSS classes on the existing DOM nodes only --
+  // deliberately NOT calling renderMain() here. renderMain() rebuilds the
+  // whole "Add an input" panel from scratch, including the name/role/
+  // discipline fields and every tab's own fields, which wipes out anything
+  // the person already typed. Tab switching should never lose input.
+  ACTIVE_TAB = t;
+  ["form", "upload", "paste", "notes"].forEach(tab => {
+    const btn = document.getElementById(`tabbtn-${tab}`);
+    const content = document.getElementById(`tab-${tab}`);
+    if (btn) btn.classList.toggle("active", tab === t);
+    if (content) content.classList.toggle("active", tab === t);
+  });
+}
 
 async function submitContribution(kind) {
   const name = document.getElementById("c-name").value.trim();
