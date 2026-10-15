@@ -24,16 +24,24 @@ async function loadProjects() {
   renderProjectList();
 }
 
+function toggleNewProjectForm() {
+  const el = document.getElementById("new-project-form");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+  if (el.style.display === "block") document.getElementById("new-project-name").focus();
+}
+
 function renderProjectList() {
-  const el = document.getElementById("project-list");
+  const el = document.getElementById("project-grid");
   if (!PROJECTS.length) {
-    el.innerHTML = `<div class="small">No projects yet.</div>`;
+    el.innerHTML = `<div class="project-grid-empty">No projects yet. Use "+ New project" above to start one — any single input type is enough for a first draft.</div>`;
     return;
   }
   el.innerHTML = PROJECTS.map(p => `
-    <div class="project-item ${CURRENT && CURRENT.id === p.id ? "active" : ""}" onclick="selectProject(${p.id})">
-      ${escapeHtml(p.name)}
-      <span class="cust">${escapeHtml(p.customer || "no customer set")}</span>
+    <div class="project-card ${CURRENT && CURRENT.id === p.id ? "selected" : ""}" onclick="selectProject(${p.id})">
+      <div class="icon-tile">▣</div>
+      <div class="p-name">${escapeHtml(p.name)}</div>
+      <div class="p-cust">${escapeHtml(p.customer || "No customer set")}</div>
+      <span class="small">Open project →</span>
     </div>
   `).join("");
 }
@@ -48,6 +56,7 @@ async function createProject() {
   const p = await api("/projects", { method: "POST", body: fd });
   document.getElementById("new-project-name").value = "";
   document.getElementById("new-project-customer").value = "";
+  document.getElementById("new-project-form").style.display = "none";
   await loadProjects();
   selectProject(p.id);
 }
@@ -57,26 +66,57 @@ async function selectProject(id) {
   VIEW_VERSION = CURRENT.proposals.length ? CURRENT.proposals[0].version : null;
   renderProjectList();
   renderMain();
+  const mainEl = document.getElementById("main");
+  if (mainEl) mainEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderMain() {
   const main = document.getElementById("main");
-  if (!CURRENT) { main.innerHTML = `<div class="empty">Select or create a project to begin.</div>`; return; }
+  if (!CURRENT) { main.innerHTML = ""; return; }
+
+  const openClar = CURRENT.proposals.length ? (CURRENT.proposals.find(p => p.version === VIEW_VERSION)?.content.clarifications.length ?? 0) : 0;
+  const latestDomain = CURRENT.proposals.length ? CURRENT.proposals.find(p => p.version === VIEW_VERSION)?.content.matched_domains.map(d => d.label).join(" + ") : "—";
 
   main.innerHTML = `
+    <div class="flex-between" style="margin-bottom:6px;">
+      <div class="eyebrow" style="margin-bottom:0;">SELECTED PROJECT</div>
+    </div>
     <div class="card">
       <div class="flex-between">
         <div>
           <h2 style="margin-bottom:2px;">${escapeHtml(CURRENT.name)}</h2>
-          <div class="small">${escapeHtml(CURRENT.customer || "No customer set")} · ${CURRENT.contributions.length} contribution(s) on file</div>
+          <div class="small">${escapeHtml(CURRENT.customer || "No customer set")}</div>
         </div>
         <button onclick="generateProposal()">Generate draft proposal</button>
       </div>
     </div>
 
+    <div class="stat-grid">
+      <div class="stat-tile">
+        <div class="stat-label">Contributions on file</div>
+        <div class="stat-value">${CURRENT.contributions.length}</div>
+        <div class="stat-caption">Prototype workspace</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Matched domain</div>
+        <div class="stat-value" style="font-size:15px;">${escapeHtml(latestDomain || "—")}</div>
+        <div class="stat-caption">${CURRENT.proposals.length ? "From latest draft" : "No draft generated yet"}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Open clarifications</div>
+        <div class="stat-value">${openClar}</div>
+        <div class="stat-caption">${openClar ? "Needs customer input" : "None outstanding"}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Draft versions</div>
+        <div class="stat-value">${CURRENT.proposals.length}</div>
+        <div class="stat-caption">Human review required</div>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Add an input</h2>
-      <div class="small" style="margin-bottom:10px;">
+      <div class="small" style="margin-bottom:14px;">
         Multiple people can contribute to the same project — the business-development manager who met the customer,
         and the engineers / project managers who will actually scope the work. Each contribution is tagged by
         who added it so the draft (and any reviewer) can see where information came from.
@@ -184,7 +224,7 @@ function renderContributions() {
       <div class="meta">
         <strong>${escapeHtml(c.contributor_name || "Unnamed")}</strong>
         ${c.contributor_role ? " · " + escapeHtml(c.contributor_role) : ""}
-        ${c.discipline ? ` · <span class="badge">${c.discipline}</span>` : ""}
+        ${c.discipline ? ` · <span class="pill pill-blue">${c.discipline}</span>` : ""}
         · ${c.input_type}${c.source_name ? " · " + escapeHtml(c.source_name) : ""}
         · ${new Date(c.created_at + "Z").toLocaleString()}
       </div>
@@ -201,7 +241,7 @@ function renderProposal() {
   const c = proposal.content;
   const disc = META.disciplines;
 
-  const domainBadges = c.matched_domains.map(d => `<span class="badge">${escapeHtml(d.label)}</span>`).join("");
+  const domainBadges = c.matched_domains.map(d => `<span class="pill pill-blue">${escapeHtml(d.label)}</span>`).join(" ");
   const addonNotes = (c.addon_notes || []).map(n => `<li>${escapeHtml(n)}</li>`).join("");
 
   const wpRows = c.work_packages.map(wp => `
@@ -235,10 +275,12 @@ function renderProposal() {
   const risksRows = c.risks.map(r => `<tr><td>${escapeHtml(r[0])}</td><td>${escapeHtml(r[1])}</td><td>${escapeHtml(r[2])}</td></tr>`).join("");
 
   return `
-    <div class="version-pill">v${proposal.version}</div>
-    <span class="small">generated ${new Date(proposal.created_at + "Z").toLocaleString()} from ${c.contribution_count} contribution(s)</span>
-    <div style="margin:10px 0;">${domainBadges} ${c.hybrid ? '<span class="badge warn">hybrid scope — check for overlap</span>' : ""}</div>
-    ${c.volume_note ? `<div class="small">Volume detected in inputs: <strong>${escapeHtml(c.volume_note)}</strong></div>` : ""}
+    <div style="margin:4px 0 12px;">
+      <span class="version-pill">v${proposal.version}</span>
+      <span class="small">generated ${new Date(proposal.created_at + "Z").toLocaleString()} from ${c.contribution_count} contribution(s)</span>
+    </div>
+    <div style="margin-bottom:12px;">${domainBadges} ${c.hybrid ? '<span class="pill pill-amber">hybrid scope — check for overlap</span>' : ""}</div>
+    ${c.volume_note ? `<div class="small" style="margin-bottom:10px;">Volume detected in inputs: <strong>${escapeHtml(c.volume_note)}</strong></div>` : ""}
     ${addonNotes ? `<ul class="clean">${addonNotes}</ul>` : ""}
 
     <h3>Applicable standards (draft)</h3>
@@ -262,8 +304,10 @@ function renderProposal() {
     <h3>Risks</h3>
     <table><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>${risksRows}</table>
 
-    <h3>Open clarification questions ${c.clarifications.length ? `<span class="badge warn">${c.clarifications.length} open</span>` : ""}</h3>
-    ${c.clarifications.length ? `<ul class="clean">${c.clarifications.map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ul>` : `<div class="small">None auto-detected from the current inputs.</div>`}
+    <h3>Open clarification questions ${c.clarifications.length ? `<span class="pill pill-amber">${c.clarifications.length} open</span>` : `<span class="pill pill-green">none open</span>`}</h3>
+    ${c.clarifications.length
+      ? `<div class="banner banner-amber"><ul class="clean" style="margin:0;">${c.clarifications.map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>`
+      : `<div class="small">None auto-detected from the current inputs.</div>`}
 
     <h3>Contributors reflected in this draft</h3>
     <table><tr><th>Name</th><th>Role</th><th>Discipline</th><th>Input type</th></tr>
@@ -273,7 +317,7 @@ function renderProposal() {
     <div class="flex" style="margin-top:14px;">
       <a href="${API}/projects/${CURRENT.id}/proposals/${proposal.version}/download"><button class="secondary">Download as Word (.docx)</button></a>
     </div>
-    <div class="small" style="margin-top:8px;">Approval status: DRAFT. Requires technical review, commercial review and management approval before issue.</div>
+    <div class="banner banner-red" style="margin-top:12px;">Approval status: DRAFT. Requires technical review, commercial review and management approval before issue.</div>
   `;
 }
 
