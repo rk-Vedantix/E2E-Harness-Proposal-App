@@ -19,6 +19,20 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
 
+@app.middleware("http")
+async def no_cache(request, call_next):
+    # This is a small prototype that gets redeployed often, and the frontend
+    # (index.html/app.js/style.css) is served as plain static files with no
+    # cache-busting in their URLs. Without this, a browser that already has
+    # an old build cached can keep running mismatched old JS against new
+    # HTML after a redeploy -- confirmed happening during testing. Disabling
+    # caching entirely costs nothing at this scale and avoids that class of
+    # bug for every future deploy.
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
+
 @app.get("/api/meta")
 def meta():
     return {
